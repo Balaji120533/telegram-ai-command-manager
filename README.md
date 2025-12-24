@@ -2,7 +2,7 @@
 
 An AI-powered Telegram automation built using n8n that allows users to add and retrieve categorized data using simple text commands.
 
-##Features
+## Features
 - Supports `/add` and `/get` commands
 - Uses Google Gemini (LLM) to structure unstructured text
 - Splits multiple items using JavaScript
