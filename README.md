@@ -14,8 +14,10 @@ An AI-powered Telegram automation built using n8n that allows users to add and r
 
 ### /add
 
-/add groceries milk, meat\n
-/add study CA Unit 1, Math Unit 2\n
+/add groceries milk, meat
+      or
+/add study CA Unit 1, Math Unit 2
+      or
 /add project Euler find resources, execute
 
 Adds categorized items to Google Sheets with automatic counting.
