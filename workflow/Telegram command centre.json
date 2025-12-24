@@ -1,0 +1,620 @@
+{
+  "name": "Telegram command centre",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -672,
+        336
+      ],
+      "id": "c9b5f33f-59fc-476f-b285-64b30307441d",
+      "name": "Telegram Trigger",
+      "webhookId": "6e968971-0a9d-4c5c-8b83-5ddab24a749b",
+      "credentials": {
+        "telegramApi": {
+          "id": "EAsKtagb16reVGw3",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "b81fc7be-38d2-40a3-aac0-5e655c549502",
+              "leftValue": "={{ $json.message.text }}",
+              "rightValue": "/add",
+              "operator": {
+                "type": "string",
+                "operation": "startsWith"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -448,
+        336
+      ],
+      "id": "27e3d319-54d0-4f7d-a70f-5e91de6e7de0",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -288,
+        96
+      ],
+      "id": "386c16d2-f252-4e91-9165-9e79c7790e10",
+      "name": "When chat message received",
+      "webhookId": "1a19405f-4edf-4688-b7a5-70c9aeff36aa"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "{{$json.message.text}}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You are a strict data extraction bot. Your only task is to extract the main category and list of items from the user's message and output ONLY a single JSON object.  The Category should be the first word after the command. The Items should be extracted as an array of individual items.  Output format MUST be EXACTLY: {   \"category\": \"string\",   \"items\": [\"string\", \"string\", \"string\"] }"
+            },
+            {
+              "type": "HumanMessagePromptTemplate",
+              "message": "={{ $json.message.text }}"
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        0,
+        0
+      ],
+      "id": "ca1ad076-845b-49b0-8844-d6c556ed47b1",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        0,
+        272
+      ],
+      "id": "899ff0f2-3454-4ab4-907a-1150ab28fcfc",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "Sv1OPa9bzZUNz8DY",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Get the single raw text output from the Basic LLM Chain node\nconst rawOutput = $input.first().json.text;\n\n// 2. Clean and Parse the JSON string\n// This regex strips the common markdown/text wrapping (like \"json\\n(...)\")\nlet cleanedText = rawOutput.replace(/```json|```|json\\n\\(|\\n\\)/g, '').trim();\n\nlet parsedGemini;\ntry {\n    // Attempt to convert the cleaned string into a usable JSON object\n    parsedGemini = JSON.parse(cleanedText);\n} catch (e) {\n    // If parsing fails, throw an error showing the source text\n    throw new Error('AI output is still not valid JSON. Raw text was: ' + rawOutput);\n}\n\nconst now = new Date().toISOString();\n\n// 3. Map (transform) each item in the array into a new, separate item\nif (parsedGemini.items && Array.isArray(parsedGemini.items)) {\n    \n    // The final count is the length of the items array\n    const finalCount = parsedGemini.items.length;\n    \n    const finalCategory = parsedGemini.category;\n\n    const newItems = parsedGemini.items.map(item => {\n        return {\n            // These keys are what the subsequent Set Node will use:\n            json: {\n                Date: now,\n                Category: finalCategory,\n                Item: item,\n                // These two are added here to ensure the Set node can access them:\n                final_count: finalCount, \n                final_category: finalCategory \n            }\n        };\n    });\n    \n    // The node must return an array of items\n    return newItems;\n}\n\n// If AI failed to provide a valid array, return nothing\nreturn [];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        352,
+        0
+      ],
+      "id": "033dfa6b-7539-44b0-8ac4-cdcb94601e4e",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1CnHY7GG8DLMe_tUEb_1lLRNRGnVPEjwlgmCvLWley5U",
+          "mode": "list",
+          "cachedResultName": "AI command center data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1CnHY7GG8DLMe_tUEb_1lLRNRGnVPEjwlgmCvLWley5U/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1CnHY7GG8DLMe_tUEb_1lLRNRGnVPEjwlgmCvLWley5U/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Date": "={{ $json.Date }}",
+            "Category": "={{ $json.Category }}",
+            "Item": "={{ $json.Item }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Date",
+              "displayName": "Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Category",
+              "displayName": "Category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Item",
+              "displayName": "Item",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        576,
+        0
+      ],
+      "id": "42d5724c-6ca3-412e-a516-4248e05bfa4f",
+      "name": "Append row in sheet",
+      "retryOnFail": true,
+      "waitBetweenTries": 100,
+      "executeOnce": false,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "jeEswlTWPMMsjbMq",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{$item(0).$node[\"Telegram Trigger\"].json.message.chat.id}}",
+        "text": "={{ \"SUCCESS!\" + $json.final_count + \" new item(s) added to the \" +$json.final_category + \" list.\"}}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1024,
+        0
+      ],
+      "id": "7a8d2d98-6c49-4624-8bac-533dd3259747",
+      "name": "Send a text message",
+      "webhookId": "865bb665-5e8d-4c3d-88ff-e5874741a1bb",
+      "credentials": {
+        "telegramApi": {
+          "id": "EAsKtagb16reVGw3",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "018870a2-8c6e-4f1c-b9fb-40a47ad96b5e",
+              "name": "=final_count",
+              "value": "={{$input.all().length}}",
+              "type": "string"
+            },
+            {
+              "id": "ae7a4b33-cdfd-4e7c-84b9-6c57dce62345",
+              "name": "final_category",
+              "value": "={{ JSON.parse($node[\"Basic LLM Chain\"].json.text.replace(/json\\\\n\\\\(|\\\\n\\\\)/g, '').replace(/```json|```/g, '').trim()).category}}",
+              "type": "string"
+            },
+            {
+              "id": "3bc6d110-90e5-4679-86c7-1bcf478462c5",
+              "name": "final_chat_id",
+              "value": "={{$item(0).$node[\"Telegram Trigger\"].json.message.chat.id}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        800,
+        0
+      ],
+      "id": "604d24a5-6a9f-4d10-89d5-700fc41de720",
+      "name": "Edit Fields",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "98339d46-ebf4-4324-a766-8ef975a9e5cd",
+              "leftValue": "={{ $json.message.text }}",
+              "rightValue": "/get",
+              "operator": {
+                "type": "string",
+                "operation": "startsWith"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -80,
+        736
+      ],
+      "id": "5b96b726-53c2-4125-a91f-b654398e73f7",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e49044aa-9dc0-40ef-9858-5a041c64d451",
+              "name": "QueryCategory",
+              "value": "={{$json.message.text.split(\" \")[1]}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        208,
+        640
+      ],
+      "id": "5000fb44-385a-4105-9d64-7572735d05cc",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "chatId": "5065199663",
+        "text": "=\"Sorry, I only recognize the commands /add [Category] and /get [Category].\"",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        208,
+        832
+      ],
+      "id": "9f69616c-cc02-419a-ae27-a3068596cb13",
+      "name": "Send a text message1",
+      "webhookId": "c1ea5b1a-fab5-4350-ad23-b805f9976b48",
+      "credentials": {
+        "telegramApi": {
+          "id": "EAsKtagb16reVGw3",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1CnHY7GG8DLMe_tUEb_1lLRNRGnVPEjwlgmCvLWley5U",
+          "mode": "list",
+          "cachedResultName": "AI command center data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1CnHY7GG8DLMe_tUEb_1lLRNRGnVPEjwlgmCvLWley5U/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1CnHY7GG8DLMe_tUEb_1lLRNRGnVPEjwlgmCvLWley5U/edit#gid=0"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "=Category",
+              "lookupValue": "={{ $json.QueryCategory }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        432,
+        640
+      ],
+      "id": "0e585540-3ecb-4798-b7a4-88c15b9c709d",
+      "name": "Get row(s) in sheet",
+      "alwaysOutputData": false,
+      "retryOnFail": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "jeEswlTWPMMsjbMq",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Get all incoming items (includes ALL dates for the category)\nconst allItems = $input.all();\n\n// Get today's date in YYYY-MM-DD format for comparison\nconst today = (new Date()).toISOString().substring(0, 10);\n\n// 2. Filter the list to include only items logged TODAY\nconst todayItems = allItems.filter(item => {\n    // Check if the item's Date string STARTS WITH today's YYYY-MM-DD date\n    return item.json.Date.startsWith(today);\n});\n\n// 3. Handle case where nothing is found for today\nif (todayItems.length === 0) {\n    return [\n        { json: { FinalMessage: `❌ Found zero items for today (${today}).` } }\n    ];\n}\n\n// 4. Map and build the final message using ONLY today's items\nconst messageLines = todayItems.map((item) => {\n    return `• ${item.json.Item}`;\n});\n\nconst finalMessage = `✅ Found ${todayItems.length} items for Category: ${todayItems[0].json.Category} (Today, ${today})\\n\\n${messageLines.join('\\n')}`;\n\n// 5. Return the single final message string\nreturn [\n    { json: { FinalMessage: finalMessage } }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        656,
+        640
+      ],
+      "id": "5c0c831e-224d-468f-be79-5e5ef16120a3",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "chatId": "5065199663",
+        "text": "={{$json.FinalMessage}}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        880,
+        640
+      ],
+      "id": "d239c119-337c-438d-9983-358b28ad48df",
+      "name": "final telegram",
+      "webhookId": "9424714d-4eaa-4b56-be4b-c631db49803e",
+      "credentials": {
+        "telegramApi": {
+          "id": "EAsKtagb16reVGw3",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Telegram Trigger": [
+      {
+        "json": {
+          "update_id": 154407769,
+          "message": {
+            "message_id": 90,
+            "from": {
+              "id": 5065199663,
+              "is_bot": false,
+              "first_name": "Balaji",
+              "last_name": "S",
+              "language_code": "en"
+            },
+            "chat": {
+              "id": 5065199663,
+              "first_name": "Balaji",
+              "last_name": "S",
+              "type": "private"
+            },
+            "date": 1766423031,
+            "text": "/add groceries milk,meat",
+            "entities": [
+              {
+                "offset": 0,
+                "length": 4,
+                "type": "bot_command"
+              }
+            ]
+          }
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a text message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "final telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "6e815905-2dc9-4506-88f4-5448cd5bea49",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7652dba5f86380d3d2cf4911bbfeb0834b283a39dfcc7ceee4c4914b897f2e6d"
+  },
+  "id": "5XCSRNyY0OF70qbr",
+  "tags": []
+}
